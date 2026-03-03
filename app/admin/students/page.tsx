@@ -18,6 +18,11 @@ export default async function StudentsPage() {
     getClasses(schoolId),
   ]);
 
+  async function handleCreateStudent(fd: FormData) {
+    "use server";
+    await createStudent(fd);
+  }
+
   const classOptions = classes.map((c) => ({
     id: c.id,
     grade: c.grade,
@@ -34,7 +39,7 @@ export default async function StudentsPage() {
           <CardTitle className="text-base">학생 개별 등록</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={createStudent} className="flex flex-wrap gap-3 items-end">
+          <form action={handleCreateStudent} className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <label className="text-sm font-medium">학급</label>
               <select name="class_id" required className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm">

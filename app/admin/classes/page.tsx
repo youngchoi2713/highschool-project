@@ -19,6 +19,11 @@ export default async function ClassesPage() {
     getTeachers(schoolId),
   ]);
 
+  async function handleCreateClass(fd: FormData) {
+    "use server";
+    await createClass(fd);
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">학급 관리</h1>
@@ -29,7 +34,7 @@ export default async function ClassesPage() {
           <CardTitle className="text-base">학급 추가</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={createClass} className="flex flex-wrap gap-3 items-end">
+          <form action={handleCreateClass} className="flex flex-wrap gap-3 items-end">
             <div className="space-y-1">
               <label className="text-sm font-medium">학년</label>
               <select name="grade" required className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm">
