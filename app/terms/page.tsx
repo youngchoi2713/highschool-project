@@ -18,7 +18,7 @@ export default function TermsPage() {
         <section>
           <h2 className="text-lg font-semibold mb-2">제1조 (목적)</h2>
           <p>
-            본 약관은 교칙위반 관리 시스템(이하 "서비스")의 이용 조건 및 절차,
+            본 약관은 교칙위반 관리 시스템(이하 &ldquo;서비스&rdquo;)의 이용 조건 및 절차,
             이용자와 운영자의 권리·의무 및 책임 사항을 규정함을 목적으로 합니다.
           </p>
         </section>
