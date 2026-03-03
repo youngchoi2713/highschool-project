@@ -153,11 +153,18 @@ app/
 ├── pending/page.tsx        Server Component — 미승인 대기
 ├── submit/page.tsx         Server Component — 위반 제출 (교과 교사용)
 ├── violations/page.tsx     Server Component — 이력 조회 (담임용)
-├── admin/                  (미구현)
+├── admin/
+│   ├── layout.tsx          사이드바 레이아웃 + 로그아웃
+│   ├── page.tsx            대시보드 (학생/교사/위반 통계)
+│   ├── classes/page.tsx    학급 추가 + 담임 배정
+│   ├── teachers/page.tsx   교사 승인 + 역할 변경
+│   └── students/page.tsx   학생 개별/CSV 일괄 등록
 ├── super-admin/            (미구현)
-├── api/ping/               (미구현 — Vercel Cron용)
+├── api/ping/route.ts       Vercel Cron — Supabase 비활성 방지
+├── privacy/page.tsx        개인정보처리방침 (AdSense 필수)
+├── terms/page.tsx          이용약관 (AdSense 필수)
 ├── layout.tsx              루트 레이아웃
-├── page.tsx                홈 (랜딩 페이지 — 미구현)
+├── page.tsx                랜딩 페이지 (히어로 + 기능 소개 + CTA)
 └── globals.css             shadcn CSS 변수
 
 features/violations/
@@ -166,11 +173,19 @@ features/violations/
 └── components/
     └── ViolationForm.tsx   위반 제출 폼 (Client Component)
 
+features/admin/
+├── actions.ts              createClass, assignHomeroom, approveTeacher, updateTeacherRole, createStudent, bulkCreateStudents
+├── queries.ts              getAdminStats, getClasses, getTeachers, getPendingTeachers, getStudents
+└── components/
+    └── StudentCsvUpload.tsx  클라이언트 CSV 파서 + 미리보기 + 업로드
+
 lib/
 ├── supabase/
 │   ├── server.ts           createClient() + createAdminClient()
 │   └── client.ts           createBrowserClient()
 └── utils.ts                cn() 유틸
+
+vercel.json                 Cron Job: /api/ping 매일 09:00 KST 호출
 
 components/ui/              shadcn 컴포넌트 (button, input, label, select, card, table, badge)
 middleware.ts               인증·역할 접근 제어
@@ -187,26 +202,32 @@ middleware.ts               인증·역할 접근 제어
 | 2 | DB 스키마 (SQL Editor 직접 실행) | ✅ |
 | 3 | Next.js 프로젝트 초기화 | ✅ |
 | 4 | 핵심 기능 (로그인·위반제출·이력조회) | ✅ |
-| 5 | 관리자 화면 (/admin) | ⏳ 다음 |
-| 6 | 랜딩 페이지 + AdSense (/privacy, /terms) | 대기 |
-| 7 | Vercel 배포 | 대기 |
+| 5 | 관리자 화면 (/admin) | ✅ |
+| 6 | 랜딩 페이지 + /privacy + /terms + Vercel Cron | ✅ |
+| 7 | Vercel 배포 | ⏳ 다음 |
 | 8 | 초기 데이터 입력 (학교·학급·학생·교사) | 대기 |
 | 9 | AdSense 신청 | 대기 |
 
 ---
 
-## 다음 구현 목표 — STEP 5: 관리자 화면
+## 다음 구현 목표 — STEP 7: Vercel 배포
 
-### 필요한 페이지
-- `/admin` — 학교관리자 대시보드
-- `/admin/teachers` — 교사 계정 관리 (역할·학급 배정)
-- `/admin/students` — 학생 명단 + CSV 일괄 등록
-- `/admin/classes` — 학급 생성·담임 배정
+### 순서
+1. GitHub 저장소: https://github.com/youngchoi2713/highschool-project (준비 완료)
+2. Vercel → "Add New Project" → GitHub 저장소 연결
+3. 환경변수 입력 (3개):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+4. Deploy → 도메인 확인
 
-### 핵심 로직
-- 교사 등록 시 `app_metadata`에 `role`, `school_id` 설정 → `createAdminClient()` 사용
-- 학생 CSV 업로드: `papa-parse` 또는 `csv-parse` 로 파싱 후 bulk insert
-- RLS 우회 필요 시 `createAdminClient()` 사용
+### 배포 후 STEP 8 (초기 데이터)
+- Supabase SQL Editor에서 용호고등학교 schools 레코드 INSERT
+- super_admin 계정 생성 → app_metadata 수동 설정
+- school_admin 계정 생성 및 승인
+- 학급 생성 (1~3학년, 각 반)
+- 교사 계정 생성 및 역할 배정
+- 학생 CSV 업로드
 
 ---
 
