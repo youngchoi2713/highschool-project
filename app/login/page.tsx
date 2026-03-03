@@ -21,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
@@ -29,8 +29,22 @@ export default function LoginPage() {
       return;
     }
 
+    // 역할에 따라 적절한 페이지로 이동
+    const role = data.user?.app_metadata?.role;
+    const schoolId = data.user?.app_metadata?.school_id;
+
     router.refresh();
-    router.push("/");
+    if (!schoolId) {
+      router.push("/pending");
+    } else if (role === "super_admin" || role === "school_admin") {
+      router.push("/admin");
+    } else if (role === "subject") {
+      router.push("/submit");
+    } else if (role === "homeroom") {
+      router.push("/violations");
+    } else {
+      router.push("/pending");
+    }
   }
 
   return (
