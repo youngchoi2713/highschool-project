@@ -16,10 +16,10 @@ const matchesAnyPrefix = (pathname: string, paths: string[]) =>
 
 function hasRoleAccess(pathname: string, role: AppRole | null): boolean {
   if (matchesAnyPrefix(pathname, SUBJECT_HOMEROOM_PATHS)) {
-    return role === "subject" || role === "homeroom";
+    return role === "subject" || role === "homeroom" || role === "super_admin";
   }
   if (matchesAnyPrefix(pathname, SCHOOL_ADMIN_PATHS)) {
-    return role === "school_admin";
+    return role === "school_admin" || role === "super_admin";
   }
   if (matchesAnyPrefix(pathname, SUPER_ADMIN_PATHS)) {
     return role === "super_admin";
@@ -80,10 +80,23 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // school_id 있는데 /pending에 접근 시: / 로 이동
+  // school_id 있는데 /pending에 접근 시: 대시보드로 이동
   if (schoolId && pathname === "/pending") {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = role === "super_admin" || role === "school_admin" ? "/admin"
+      : role === "subject" ? "/submit"
+      : role === "homeroom" ? "/violations"
+      : "/";
+    return NextResponse.redirect(url);
+  }
+
+  // 이미 로그인된 상태에서 /login 또는 / 접근 시: 대시보드로 이동
+  if (pathname === "/login" || pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = role === "super_admin" || role === "school_admin" ? "/admin"
+      : role === "subject" ? "/submit"
+      : role === "homeroom" ? "/violations"
+      : "/pending";
     return NextResponse.redirect(url);
   }
 
