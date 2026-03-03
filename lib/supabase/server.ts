@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
@@ -14,14 +14,14 @@ export function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value;
         },
-        set(name: string, value: string, options) {
+        set(name: string, value: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value, ...options });
           } catch {
             // Server Component에서 호출 시 읽기 전용 — 무시
           }
         },
-        remove(name: string, options) {
+        remove(name: string, options: CookieOptions) {
           try {
             cookieStore.set({ name, value: "", ...options });
           } catch {
