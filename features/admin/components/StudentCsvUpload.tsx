@@ -1,28 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { bulkCreateStudentsWithAutoClass } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { bulkCreateStudents } from "../actions";
 
-type ClassOption = { id: string; grade: number; class_number: number };
+type ParsedRow = { grade: number; classNum: number; studentNumber: number; name: string };
 
 type Props = {
-  classes: ClassOption[];
   schoolId: string;
+  year?: number;
 };
 
-type ParsedRow = { classId: string; studentNumber: number; name: string };
-
-export default function StudentCsvUpload({ classes, schoolId }: Props) {
+export default function StudentCsvUpload({ schoolId, year }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [preview, setPreview] = useState<ParsedRow[]>([]);
   const [error, setError] = useState("");
   const [result, setResult] = useState("");
-
-  // 학급 id를 grade+class_number로 찾는 헬퍼
-  const findClassId = (grade: number, classNum: number) =>
-    classes.find((c) => c.grade === grade && c.class_number === classNum)?.id ?? null;
+  const [targetYear] = useState(year ?? new Date().getFullYear());
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError("");
@@ -35,8 +32,6 @@ export default function StudentCsvUpload({ classes, schoolId }: Props) {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
-
-      // 헤더 행 건너뜀 (첫 줄이 숫자가 아닌 경우)
       const dataLines = /^\d/.test(lines[0]) ? lines : lines.slice(1);
 
       const rows: ParsedRow[] = [];
@@ -57,21 +52,13 @@ export default function StudentCsvUpload({ classes, schoolId }: Props) {
           errors.push(`${idx + 1}행: 빈 값 있음`);
           return;
         }
-
-        const classId = findClassId(grade, classNum);
-        if (!classId) {
-          errors.push(`${idx + 1}행: ${grade}학년 ${classNum}반이 DB에 없음`);
-          return;
-        }
-
-        rows.push({ classId, studentNumber, name });
+        rows.push({ grade, classNum, studentNumber, name });
       });
 
       if (errors.length > 0) {
-        setError(errors.slice(0, 5).join(" / ") + (errors.length > 5 ? ` 외 ${errors.length - 5}건` : ""));
+        setError(errors.slice(0, 5).join(" | ") + (errors.length > 5 ? ` 외 ${errors.length - 5}건` : ""));
         return;
       }
-
       setPreview(rows);
     };
     reader.readAsText(file, "utf-8");
@@ -79,12 +66,13 @@ export default function StudentCsvUpload({ classes, schoolId }: Props) {
 
   function handleUpload() {
     startTransition(async () => {
-      const res = await bulkCreateStudents(preview, schoolId);
+      const res = await bulkCreateStudentsWithAutoClass(preview, schoolId, targetYear);
       if (res.error) {
         setError(res.error);
       } else {
-        setResult(`${res.count}명 등록 완료!`);
+        setResult(`${res.count}명 등록 완료! (없는 학급은 자동으로 생성됨)`);
         setPreview([]);
+        router.refresh();
       }
     });
   }
@@ -96,14 +84,20 @@ export default function StudentCsvUpload({ classes, schoolId }: Props) {
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          CSV 형식: <code className="bg-muted px-1 rounded">학년,반,번호,이름</code> (헤더 행 있어도 됨)
+          CSV 형식:{" "}
+          <code className="bg-muted px-1 rounded">학년,반,번호,이름</code> (헤더 행 있어도 됨)
         </p>
         <p className="text-xs text-muted-foreground">
-          예: <code className="bg-muted px-1 rounded">1,1,1,홍길동</code>
+          예: <code className="bg-muted px-1 rounded">1,1,1,홍길동</code>{" "}
+          — DB에 없는 학급은 자동으로 생성됩니다 (학년도 {targetYear})
         </p>
 
-        <input type="file" accept=".csv,text/csv" onChange={handleFile}
-          className="block w-full text-sm file:mr-3 file:rounded-md file:border file:px-3 file:py-1 file:text-sm" />
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleFile}
+          className="block w-full text-sm file:mr-3 file:rounded-md file:border file:px-3 file:py-1 file:text-sm"
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
         {result && <p className="text-sm text-green-600">{result}</p>}
@@ -121,18 +115,19 @@ export default function StudentCsvUpload({ classes, schoolId }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.slice(0, 20).map((r, i) => {
-                    const cls = classes.find((c) => c.id === r.classId);
-                    return (
-                      <tr key={i} className="border-t">
-                        <td className="px-2 py-1">{cls?.grade}학년 {cls?.class_number}반</td>
-                        <td className="px-2 py-1">{r.studentNumber}</td>
-                        <td className="px-2 py-1">{r.name}</td>
-                      </tr>
-                    );
-                  })}
+                  {preview.slice(0, 20).map((r, i) => (
+                    <tr key={i} className="border-t">
+                      <td className="px-2 py-1">{r.grade}학년 {r.classNum}반</td>
+                      <td className="px-2 py-1">{r.studentNumber}</td>
+                      <td className="px-2 py-1">{r.name}</td>
+                    </tr>
+                  ))}
                   {preview.length > 20 && (
-                    <tr><td colSpan={3} className="px-2 py-1 text-muted-foreground">...외 {preview.length - 20}명</td></tr>
+                    <tr>
+                      <td colSpan={3} className="px-2 py-1 text-muted-foreground">
+                        ...외 {preview.length - 20}명
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>

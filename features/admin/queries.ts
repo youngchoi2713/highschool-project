@@ -1,12 +1,12 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function getAdminStats(schoolId: string) {
-  const supabase = createClient();
+  const admin = createAdminClient();
 
   const [students, teachers, violations] = await Promise.all([
-    supabase.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("is_active", true),
-    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", schoolId),
-    supabase.from("violations").select("id", { count: "exact", head: true })
+    admin.from("students").select("id", { count: "exact", head: true }).eq("school_id", schoolId).eq("is_active", true),
+    admin.from("profiles").select("id", { count: "exact", head: true }).eq("school_id", schoolId),
+    admin.from("violations").select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
       .gte("violation_date", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)),
   ]);
@@ -19,8 +19,8 @@ export async function getAdminStats(schoolId: string) {
 }
 
 export async function getClasses(schoolId: string) {
-  const supabase = createClient();
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("classes")
     .select("id, grade, class_number, year, profiles(id, name)")
     .eq("school_id", schoolId)
@@ -29,30 +29,29 @@ export async function getClasses(schoolId: string) {
 }
 
 export async function getTeachers(schoolId: string) {
-  const supabase = createClient();
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("profiles")
-    .select("id, name, email, role")
+    .select("id, name, email, role, phone, subject")
     .eq("school_id", schoolId)
     .order("name");
   return data ?? [];
 }
 
 export async function getPendingTeachers() {
-  // school_id가 null인 미승인 교사 (admin client 필요 — auth.users 조회)
   const admin = createAdminClient();
   const { data } = await admin.from("profiles")
-    .select("id, name, email, role")
+    .select("id, name, email, role, phone, subject")
     .is("school_id", null)
     .order("name");
   return data ?? [];
 }
 
 export async function getStudents(schoolId: string) {
-  const supabase = createClient();
-  const { data } = await supabase
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("students")
-    .select("id, student_number, name, is_active, classes(grade, class_number)")
+    .select("id, student_number, name, is_active, class_id, classes(id, grade, class_number)")
     .eq("school_id", schoolId)
     .eq("is_active", true)
     .order("student_number");
