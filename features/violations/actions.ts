@@ -11,6 +11,22 @@ export type SubmitViolationInput = {
   memo?: string;
 };
 
+async function getCurrentSchoolId(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  metadataSchoolId?: string | null
+) {
+  if (metadataSchoolId) return metadataSchoolId;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", userId)
+    .single();
+
+  return (profile?.school_id as string | null) ?? null;
+}
+
 export async function submitViolation(input: SubmitViolationInput) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -19,20 +35,22 @@ export async function submitViolation(input: SubmitViolationInput) {
     return { error: "로그인이 필요합니다." };
   }
 
-  const schoolId = user.app_metadata?.school_id as string | undefined;
+  const schoolId = await getCurrentSchoolId(
+    supabase,
+    user.id,
+    (user.app_metadata?.school_id as string | null | undefined) ?? null
+  );
   if (!schoolId) {
     return { error: "학교 정보가 없습니다. 관리자에게 문의하세요." };
   }
 
-  // 입력 유효성 검사
-  if (!input.studentId || !input.violationDate || input.violationTypeIds.length === 0) {
-    return { error: "필수 항목을 모두 입력해주세요." };
+  if (!input.studentId || !input.violationDate || input.violationTypeIds.length === 0 || !input.period) {
+    return { error: "메모를 제외한 모든 항목을 입력해주세요." };
   }
   if (input.period < 1 || input.period > 9) {
     return { error: "교시는 1~9 사이여야 합니다." };
   }
 
-  // 학생이 해당 학교에 속하는지 검증
   const { data: student } = await supabase
     .from("students")
     .select("id")
@@ -73,9 +91,12 @@ export async function getStudentsByClassAction(classId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const schoolId = user.app_metadata?.school_id as string | undefined;
-  if (!schoolId) return [];
-  if (!classId) return [];
+  const schoolId = await getCurrentSchoolId(
+    supabase,
+    user.id,
+    (user.app_metadata?.school_id as string | null | undefined) ?? null
+  );
+  if (!schoolId || !classId) return [];
 
   const { data } = await supabase
     .from("students")

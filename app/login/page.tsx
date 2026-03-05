@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+const SESSION_STARTED_AT_KEY = "yvhs_session_started_at";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,13 +18,20 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("expired") === "1") {
+      setError("보안을 위해 로그인 세션이 만료되었습니다. 다시 로그인해 주세요.");
+    }
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     const supabase = createClient();
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
@@ -30,18 +39,10 @@ export default function LoginPage() {
       return;
     }
 
-    // 역할에 따라 적절한 페이지로 이동
-    const role = data.user?.app_metadata?.role;
+    localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
+
     router.refresh();
-    if (role === "super_admin" || role === "school_admin") {
-      router.push("/admin");
-    } else if (role === "subject") {
-      router.push("/submit");
-    } else if (role === "homeroom") {
-      router.push("/violations");
-    } else {
-      router.push("/");
-    }
+    router.push("/");
   }
 
   return (

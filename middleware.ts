@@ -54,14 +54,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // 세션 갱신
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
 
-  // 비로그인: 공개 경로는 허용, 나머지는 /login
   if (!user) {
     if (isPublicPath(pathname)) return response;
     const url = request.nextUrl.clone();
@@ -69,20 +67,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // app_metadata만 사용 (user_metadata는 사용자가 수정 가능하므로 신뢰 불가)
   const role = (user.app_metadata?.role ?? null) as AppRole | null;
 
-  // 이미 로그인된 상태에서 /login 또는 / 접근 시: 대시보드로 이동
-  if (pathname === "/login" || pathname === "/") {
+  if (pathname === "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = role === "super_admin" || role === "school_admin" ? "/admin"
-      : role === "subject" ? "/submit"
-      : role === "homeroom" ? "/violations"
-      : "/";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
-  // 역할 기반 접근 제어
   if (!hasRoleAccess(pathname, role)) {
     const url = request.nextUrl.clone();
     url.pathname = "/";

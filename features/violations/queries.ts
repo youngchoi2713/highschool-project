@@ -1,34 +1,50 @@
 import { createClient } from "@/lib/supabase/server";
 
+async function getCurrentSchoolId(supabase: ReturnType<typeof createClient>, userId: string, metadataSchoolId?: string | null) {
+  if (metadataSchoolId) return metadataSchoolId;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", userId)
+    .single();
+
+  return (profile?.school_id as string | null) ?? null;
+}
+
 export async function getMyClasses() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const schoolId = user.app_metadata?.school_id;
+  const schoolId = await getCurrentSchoolId(
+    supabase,
+    user.id,
+    (user.app_metadata?.school_id as string | null | undefined) ?? null
+  );
   if (!schoolId) return [];
 
-  const { data } = await supabase
+  const currentYear = new Date().getFullYear();
+
+  const { data, error } = await supabase
     .from("classes")
-    .select("id, grade, class_number")
+    .select("id, grade, class_number, year")
     .eq("school_id", schoolId)
+    .eq("year", currentYear)
     .order("grade")
     .order("class_number");
 
-  return data ?? [];
-}
+  if (error || !data) {
+    const { data: fallback } = await supabase
+      .from("classes")
+      .select("id, grade, class_number, year")
+      .eq("school_id", schoolId)
+      .order("grade")
+      .order("class_number");
+    return fallback ?? [];
+  }
 
-export async function getStudentsByClass(classId: string) {
-  const supabase = createClient();
-
-  const { data } = await supabase
-    .from("students")
-    .select("id, student_number, name")
-    .eq("class_id", classId)
-    .eq("is_active", true)
-    .order("student_number");
-
-  return data ?? [];
+  return data;
 }
 
 export async function getViolationTypes() {
@@ -52,7 +68,6 @@ export async function getViolationsByHomeroom(filters?: {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  // 담임 선생님의 학급 id 조회
   const { data: myClass } = await supabase
     .from("classes")
     .select("id")

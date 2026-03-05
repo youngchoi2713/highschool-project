@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import SessionTimeoutGuard from "@/components/auth/SessionTimeoutGuard";
 
 export const metadata: Metadata = {
   title: "교칙 위반 관리 시스템",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        <SessionTimeoutGuard />
+        {children}
+      </body>
     </html>
   );
 }
