@@ -9,7 +9,12 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit --project tsconfig.typecheck.json",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-clean.ps1",
-    "verify:local": "node ./scripts/verify-local.mjs"
+    "verify:local": "node ./scripts/verify-local.mjs",
+    "dev:up": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-server.ps1 -Action up -Port 3000",
+    "dev:down": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-server.ps1 -Action down -Port 3000",
+    "dev:restart": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-server.ps1 -Action restart -Port 3000",
+    "dev:status": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-server.ps1 -Action status -Port 3000",
+    "dev:logs": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-server.ps1 -Action logs -Port 3000 -Tail 120"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
@@ -38,4 +43,3 @@
     "typescript": "^5.5.4"
   }
 }
-

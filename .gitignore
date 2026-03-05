@@ -42,3 +42,4 @@ API URL etc.txt
 
 # local temp logs
 tmp-*.log
+tmp-*.pid
