@@ -13,6 +13,56 @@ type RegisterInput = {
   classId?: string;
 };
 
+const DEFAULT_SCHOOL_NAME = "용호 고등학교";
+const DEFAULT_SCHOOL_LEGACY_NAME = "용호고등학교";
+const DEFAULT_SCHOOL_SLUG = "yongho-high-school";
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function ensureDefaultSchoolExists(admin: AdminClient) {
+  const { data: matchedRows } = await admin
+    .from("schools")
+    .select("id, name")
+    .in("name", [DEFAULT_SCHOOL_NAME, DEFAULT_SCHOOL_LEGACY_NAME]);
+
+  if (matchedRows && matchedRows.length > 0) {
+    const preferredRow = matchedRows.find((row) => row.name === DEFAULT_SCHOOL_NAME);
+    if (preferredRow) {
+      return;
+    }
+
+    const legacyRow = matchedRows[0];
+    await admin
+      .from("schools")
+      .update({ name: DEFAULT_SCHOOL_NAME })
+      .eq("id", legacyRow.id);
+    return;
+  }
+
+  const candidates: Array<Record<string, string>> = [
+    {
+      name: DEFAULT_SCHOOL_NAME,
+      slug: DEFAULT_SCHOOL_SLUG,
+      address: "부산광역시 남구",
+      contact_email: "admin@yongho.hs.kr",
+    },
+    {
+      name: DEFAULT_SCHOOL_NAME,
+      slug: DEFAULT_SCHOOL_SLUG,
+    },
+    {
+      name: DEFAULT_SCHOOL_NAME,
+    },
+  ];
+
+  for (const payload of candidates) {
+    const { error } = await admin.from("schools").insert(payload);
+    if (!error) {
+      return;
+    }
+  }
+}
+
 export async function registerTeacher(input: RegisterInput) {
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
@@ -111,6 +161,8 @@ export async function registerTeacher(input: RegisterInput) {
 
 export async function getSchools() {
   const admin = createAdminClient();
+  await ensureDefaultSchoolExists(admin);
+
   const { data } = await admin
     .from("schools")
     .select("id, name")
