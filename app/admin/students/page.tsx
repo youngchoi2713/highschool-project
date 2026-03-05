@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { getStudents, getClasses } from "@/features/admin/queries";
 import StudentsClient from "@/features/admin/components/StudentsClient";
 
@@ -7,7 +8,9 @@ export const dynamic = "force-dynamic";
 export default async function StudentsPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string;
+  if (!user) redirect("/login");
+  const schoolId = user.app_metadata?.school_id as string | undefined;
+  if (!schoolId) redirect("/");
 
   const [students, classes] = await Promise.all([
     getStudents(schoolId),

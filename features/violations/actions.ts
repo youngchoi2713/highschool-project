@@ -28,8 +28,21 @@ export async function submitViolation(input: SubmitViolationInput) {
   if (!input.studentId || !input.violationTypeId || !input.violationDate) {
     return { error: "필수 항목을 모두 입력해주세요." };
   }
-  if (input.period < 1 || input.period > 9) {
-    return { error: "교시는 1~9 사이여야 합니다." };
+  if (input.period < 1 || input.period > 7) {
+    return { error: "교시는 1~7 사이여야 합니다." };
+  }
+
+  // 학생이 해당 학교에 속하는지 검증
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("id", input.studentId)
+    .eq("school_id", schoolId)
+    .eq("is_active", true)
+    .single();
+
+  if (!student) {
+    return { error: "해당 학생을 찾을 수 없습니다." };
   }
 
   const { error } = await supabase.from("violations").insert({

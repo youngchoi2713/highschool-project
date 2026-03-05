@@ -3,7 +3,6 @@
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  approveTeacher,
   updateTeacherRole,
   updateTeacher,
   deleteTeacher,
@@ -44,6 +43,7 @@ type Teacher = {
   role: string | null;
   phone: string | null;
   subject: string | null;
+  homeroom_class: string | null;
 };
 
 type Msg = { type: "success" | "error"; text: string };
@@ -52,12 +52,11 @@ type ClassOption = { id: string; grade: number; class_number: number };
 
 type Props = {
   teachers: Teacher[];
-  pending: Teacher[];
   schoolId: string;
   classes: ClassOption[];
 };
 
-export default function TeachersClient({ teachers, pending, schoolId, classes }: Props) {
+export default function TeachersClient({ teachers, schoolId, classes }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [localTeachers, setLocalTeachers] = useState<Teacher[]>(teachers);
@@ -93,22 +92,10 @@ export default function TeachersClient({ teachers, pending, schoolId, classes }:
       } else {
         setAddMsg({ type: "success", text: "교사가 등록되었습니다." });
         if (res.data) {
-          setLocalTeachers((prev) => [...prev, res.data!]);
+          setLocalTeachers((prev) => [...prev, { ...res.data!, homeroom_class: null }]);
         }
         setAddForm({ name: "", email: "", password: "", phone: "", subject: "", role: "subject", classId: "" });
         setShowAddForm(false);
-        router.refresh();
-      }
-    });
-  }
-
-  function handleApprove(fd: FormData, teacherId: string) {
-    const role = fd.get("role") as "homeroom" | "subject";
-    startTransition(async () => {
-      const res = await approveTeacher(teacherId, role, schoolId);
-      if (res.error) {
-        setRow(teacherId, { type: "error", text: res.error });
-      } else {
         router.refresh();
       }
     });
@@ -165,65 +152,6 @@ export default function TeachersClient({ teachers, pending, schoolId, classes }:
 
   return (
     <div className="space-y-6">
-      {/* 승인 대기 */}
-      {pending.length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
-          <CardHeader>
-            <CardTitle className="text-base text-orange-700">
-              승인 대기 중 ({pending.length}명)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>이메일</TableHead>
-                  <TableHead>전화번호</TableHead>
-                  <TableHead>과목</TableHead>
-                  <TableHead>역할 지정 후 승인</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pending.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell>{t.name ?? "이름 미입력"}</TableCell>
-                    <TableCell>{t.email}</TableCell>
-                    <TableCell>{t.phone ?? "-"}</TableCell>
-                    <TableCell>{t.subject ?? "-"}</TableCell>
-                    <TableCell>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleApprove(new FormData(e.currentTarget), t.id);
-                        }}
-                        className="flex gap-2"
-                      >
-                        <select
-                          name="role"
-                          required
-                          className="flex h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-                        >
-                          <option value="">역할 선택</option>
-                          <option value="subject">교과 교사</option>
-                          <option value="homeroom">담임 교사</option>
-                        </select>
-                        <Button type="submit" size="sm" disabled={isPending}>승인</Button>
-                      </form>
-                      {rowMsg[t.id] && (
-                        <p className={`text-xs mt-1 ${rowMsg[t.id].type === "success" ? "text-green-600" : "text-destructive"}`}>
-                          {rowMsg[t.id].text}
-                        </p>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
       {/* 교사 직접 추가 */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -332,13 +260,14 @@ export default function TeachersClient({ teachers, pending, schoolId, classes }:
               <TableHead>전화번호</TableHead>
               <TableHead>과목</TableHead>
               <TableHead>역할</TableHead>
+              <TableHead>담당 반</TableHead>
               <TableHead>관리</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {localTeachers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                   등록된 교사가 없습니다.
                 </TableCell>
               </TableRow>
@@ -376,6 +305,7 @@ export default function TeachersClient({ teachers, pending, schoolId, classes }:
                           {ROLE_LABELS[t.role ?? ""] ?? t.role}
                         </Badge>
                       </TableCell>
+                      <TableCell>{t.homeroom_class ?? "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="sm" onClick={() => handleEditSave(t.id)} disabled={isPending}>저장</Button>
@@ -405,6 +335,7 @@ export default function TeachersClient({ teachers, pending, schoolId, classes }:
                           <option value="school_admin">학교관리자</option>
                         </select>
                       </TableCell>
+                      <TableCell>{t.role === "homeroom" ? (t.homeroom_class ?? "미배정") : "-"}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button size="sm" variant="outline" onClick={() => startEdit(t)}>수정</Button>

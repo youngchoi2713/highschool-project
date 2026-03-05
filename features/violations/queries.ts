@@ -5,9 +5,13 @@ export async function getMyClasses() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
+  const schoolId = user.app_metadata?.school_id;
+  if (!schoolId) return [];
+
   const { data } = await supabase
     .from("classes")
     .select("id, grade, class_number")
+    .eq("school_id", schoolId)
     .order("grade")
     .order("class_number");
 

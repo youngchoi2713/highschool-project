@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type AppRole = "super_admin" | "school_admin" | "homeroom" | "subject";
 
-const PUBLIC_PATHS = ["/", "/login", "/register", "/privacy", "/terms", "/pending"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/privacy", "/terms"];
 const SUBJECT_HOMEROOM_PATHS = ["/submit", "/violations"];
 const SCHOOL_ADMIN_PATHS = ["/admin"];
 const SUPER_ADMIN_PATHS = ["/super-admin"];
@@ -70,25 +70,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // app_metadata만 사용 (user_metadata는 사용자가 수정 가능하므로 신뢰 불가)
-  const schoolId = (user.app_metadata?.school_id ?? null) as string | null;
   const role = (user.app_metadata?.role ?? null) as AppRole | null;
-
-  // school_id 미배정: /pending으로 이동
-  if (!schoolId && pathname !== "/pending") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/pending";
-    return NextResponse.redirect(url);
-  }
-
-  // school_id 있는데 /pending에 접근 시: 대시보드로 이동
-  if (schoolId && pathname === "/pending") {
-    const url = request.nextUrl.clone();
-    url.pathname = role === "super_admin" || role === "school_admin" ? "/admin"
-      : role === "subject" ? "/submit"
-      : role === "homeroom" ? "/violations"
-      : "/";
-    return NextResponse.redirect(url);
-  }
 
   // 이미 로그인된 상태에서 /login 또는 / 접근 시: 대시보드로 이동
   if (pathname === "/login" || pathname === "/") {
@@ -96,7 +78,7 @@ export async function middleware(request: NextRequest) {
     url.pathname = role === "super_admin" || role === "school_admin" ? "/admin"
       : role === "subject" ? "/submit"
       : role === "homeroom" ? "/violations"
-      : "/pending";
+      : "/";
     return NextResponse.redirect(url);
   }
 

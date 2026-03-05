@@ -268,28 +268,6 @@ export async function bulkCreateTeachers(
   return { success: true, created, failed };
 }
 
-export async function approveTeacher(
-  userId: string,
-  role: "homeroom" | "subject",
-  schoolId: string
-) {
-  const admin = createAdminClient();
-
-  const { error: authError } = await admin.auth.admin.updateUserById(userId, {
-    app_metadata: { role, school_id: schoolId },
-  });
-  if (authError) return { error: "교사 승인 중 오류가 발생했습니다." };
-
-  const { error: profileError } = await admin
-    .from("profiles")
-    .update({ role, school_id: schoolId })
-    .eq("id", userId);
-  if (profileError) return { error: "교사 승인 중 오류가 발생했습니다." };
-
-  revalidatePath("/admin/teachers");
-  return { success: true };
-}
-
 export async function updateTeacherRole(
   userId: string,
   role: "homeroom" | "subject" | "school_admin"

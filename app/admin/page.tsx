@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { getAdminStats } from "@/features/admin/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -8,7 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboard() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string;
+  if (!user) redirect("/login");
+  const schoolId = user.app_metadata?.school_id as string | undefined;
+  if (!schoolId) redirect("/");
 
   const { data: school } = await supabase
     .from("schools")
@@ -26,7 +29,7 @@ export default async function AdminDashboard() {
 
   const SHORTCUTS = [
     { href: "/admin/classes", label: "학급 추가" },
-    { href: "/admin/teachers", label: "교사 승인" },
+    { href: "/admin/teachers", label: "교사 등록/관리" },
     { href: "/admin/students", label: "학생 CSV 등록" },
   ];
 

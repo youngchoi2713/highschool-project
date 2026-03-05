@@ -27,7 +27,7 @@ export default function Home() {
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <Link
-            href="/login"
+            href="/register"
             className="rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             시작하기
@@ -78,12 +78,20 @@ export default function Home() {
         <div className="mx-auto max-w-md">
           <h2 className="text-2xl font-bold">지금 바로 시작하세요</h2>
           <p className="mt-2 text-muted-foreground text-sm">무료로 이용 가능합니다.</p>
-          <Link
-            href="/login"
-            className="mt-6 inline-block rounded-md bg-primary px-8 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            로그인하기
-          </Link>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              href="/register"
+              className="inline-block rounded-md bg-primary px-8 py-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              회원가입
+            </Link>
+            <Link
+              href="/login"
+              className="inline-block rounded-md border px-8 py-3 text-sm font-medium hover:bg-accent"
+            >
+              로그인
+            </Link>
+          </div>
         </div>
       </section>
 

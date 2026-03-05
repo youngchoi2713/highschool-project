@@ -37,7 +37,7 @@ export default function TermsPage() {
           <h2 className="text-lg font-semibold mb-2">제3조 (회원 가입 및 계정)</h2>
           <p>
             서비스 이용을 위해 이메일과 비밀번호로 계정을 생성할 수 있습니다.
-            가입 후 학교 관리자의 승인을 받아야 서비스를 이용할 수 있습니다.
+            가입 시 학교와 역할을 선택하면 즉시 서비스를 이용할 수 있습니다.
           </p>
         </section>
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { getViolationTypes } from "@/features/violations/queries";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ type SearchParams = {
 export default async function ViolationsPage({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (!user) redirect("/login");
 
   // 담임 학급 조회
   const { data: myClass } = await supabase
@@ -23,6 +24,18 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
     .select("id, grade, class_number")
     .eq("homeroom_teacher_id", user.id)
     .single();
+
+  // 담임 학급이 없으면 안내 메시지 표시 (전체 데이터 노출 방지)
+  if (!myClass) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-8">
+        <h1 className="text-2xl font-bold">위반 이력</h1>
+        <p className="text-muted-foreground">
+          배정된 담임 학급이 없습니다. 관리자에게 문의하세요.
+        </p>
+      </div>
+    );
+  }
 
   const violationTypes = await getViolationTypes();
 
@@ -37,12 +50,9 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
       violation_types (id, label),
       profiles (name)
     `)
+    .eq("students.class_id", myClass.id)
     .order("violation_date", { ascending: false })
     .order("period", { ascending: true });
-
-  if (myClass) {
-    query = query.eq("students.class_id", myClass.id);
-  }
   if (searchParams.from) query = query.gte("violation_date", searchParams.from);
   if (searchParams.to) query = query.lte("violation_date", searchParams.to);
   if (searchParams.typeId) query = query.eq("violation_type_id", searchParams.typeId);

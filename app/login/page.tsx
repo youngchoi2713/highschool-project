@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,19 +32,15 @@ export default function LoginPage() {
 
     // 역할에 따라 적절한 페이지로 이동
     const role = data.user?.app_metadata?.role;
-    const schoolId = data.user?.app_metadata?.school_id;
-
     router.refresh();
-    if (!schoolId) {
-      router.push("/pending");
-    } else if (role === "super_admin" || role === "school_admin") {
+    if (role === "super_admin" || role === "school_admin") {
       router.push("/admin");
     } else if (role === "subject") {
       router.push("/submit");
     } else if (role === "homeroom") {
       router.push("/violations");
     } else {
-      router.push("/pending");
+      router.push("/");
     }
   }
 
@@ -85,6 +82,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "로그인 중..." : "로그인"}
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              계정이 없으신가요?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                회원가입
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>
