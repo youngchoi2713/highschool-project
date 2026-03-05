@@ -11,6 +11,7 @@ type SearchParams = {
   from?: string;
   to?: string;
   typeId?: string;
+  q?: string;
 };
 
 export default async function ViolationsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -47,7 +48,7 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
       period,
       memo,
       students!inner (id, name, student_number, class_id),
-      violation_types (id, label),
+      violation_types (id, label, code),
       profiles (name)
     `)
     .eq("students.class_id", myClass.id)
@@ -58,7 +59,16 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
   if (searchParams.typeId) query = query.eq("violation_type_id", searchParams.typeId);
 
   const { data: violations } = await query;
-  const list = violations ?? [];
+  const rawList = violations ?? [];
+  const keyword = (searchParams.q ?? "").trim();
+  const list = keyword
+    ? rawList.filter((v) => {
+      const student = v.students as any;
+      const name = String(student?.name ?? "");
+      const num = String(student?.student_number ?? "");
+      return name.includes(keyword) || num.includes(keyword);
+    })
+    : rawList;
 
   // 유형별 집계
   const typeCounts = list.reduce<Record<string, number>>((acc, v) => {
@@ -66,6 +76,40 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
     acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {});
+
+  // 학생별 요약 (담임이 한 눈에 파악)
+  const studentSummaryMap = new Map<string, {
+    student: string;
+    total: number;
+    electronic: number;
+    uniform: number;
+    lastDate: string;
+  }>();
+
+  for (const v of list) {
+    const student = v.students as any;
+    const type = v.violation_types as any;
+    const key = `${student?.id ?? ""}`;
+    if (!key) continue;
+
+    const current = studentSummaryMap.get(key) ?? {
+      student: `${student?.student_number ?? "-"}번 ${student?.name ?? "-"}`,
+      total: 0,
+      electronic: 0,
+      uniform: 0,
+      lastDate: v.violation_date,
+    };
+    current.total += 1;
+    if (type?.code === "electronic_device") current.electronic += 1;
+    if (type?.code === "uniform") current.uniform += 1;
+    if (v.violation_date > current.lastDate) current.lastDate = v.violation_date;
+    studentSummaryMap.set(key, current);
+  }
+
+  const studentSummary = Array.from(studentSummaryMap.values()).sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    return a.student.localeCompare(b.student, "ko");
+  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-8">
@@ -102,6 +146,45 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
         ))}
       </div>
 
+      {/* 학생별 요약 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">학생별 위반 요약</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>학생</TableHead>
+                <TableHead>총 위반</TableHead>
+                <TableHead>전자기기</TableHead>
+                <TableHead>교복</TableHead>
+                <TableHead>최근 위반일</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {studentSummary.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    집계할 데이터가 없습니다.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                studentSummary.map((s) => (
+                  <TableRow key={s.student}>
+                    <TableCell>{s.student}</TableCell>
+                    <TableCell className="font-semibold">{s.total}</TableCell>
+                    <TableCell>{s.electronic}</TableCell>
+                    <TableCell>{s.uniform}</TableCell>
+                    <TableCell>{s.lastDate}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
       {/* 필터 */}
       <form className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
@@ -134,6 +217,15 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
               <option key={t.id} value={t.id}>{t.label}</option>
             ))}
           </select>
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">학생 검색</label>
+          <input
+            name="q"
+            defaultValue={searchParams.q ?? ""}
+            placeholder="번호 또는 이름"
+            className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+          />
         </div>
         <button
           type="submit"

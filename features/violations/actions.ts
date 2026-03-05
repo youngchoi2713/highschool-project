@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/server";
 
 export type SubmitViolationInput = {
   studentId: string;
-  violationTypeId: string;
+  violationTypeIds: string[];
   violationDate: string;  // "YYYY-MM-DD"
-  period: number;         // 교시 (1~7)
+  period: number;         // 교시 (1~9)
   memo?: string;
 };
 
@@ -25,11 +25,11 @@ export async function submitViolation(input: SubmitViolationInput) {
   }
 
   // 입력 유효성 검사
-  if (!input.studentId || !input.violationTypeId || !input.violationDate) {
+  if (!input.studentId || !input.violationDate || input.violationTypeIds.length === 0) {
     return { error: "필수 항목을 모두 입력해주세요." };
   }
-  if (input.period < 1 || input.period > 7) {
-    return { error: "교시는 1~7 사이여야 합니다." };
+  if (input.period < 1 || input.period > 9) {
+    return { error: "교시는 1~9 사이여야 합니다." };
   }
 
   // 학생이 해당 학교에 속하는지 검증
@@ -45,21 +45,25 @@ export async function submitViolation(input: SubmitViolationInput) {
     return { error: "해당 학생을 찾을 수 없습니다." };
   }
 
-  const { error } = await supabase.from("violations").insert({
+  const distinctTypeIds = Array.from(new Set(input.violationTypeIds));
+  const inserts = distinctTypeIds.map((typeId) => ({
     student_id: input.studentId,
     school_id: schoolId,
     submitted_by: user.id,
-    violation_type_id: input.violationTypeId,
+    violation_type_id: typeId,
     violation_date: input.violationDate,
     period: input.period,
     memo: input.memo?.trim() || null,
-  });
+  }));
+
+  const { error } = await supabase.from("violations").insert(inserts);
 
   if (error) {
     console.error("위반 제출 오류:", error);
     return { error: "저장 중 오류가 발생했습니다. 다시 시도해주세요." };
   }
 
+  revalidatePath("/submit");
   revalidatePath("/violations");
-  return { success: true };
+  return { success: true, count: inserts.length };
 }

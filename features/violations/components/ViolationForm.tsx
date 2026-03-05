@@ -17,7 +17,7 @@ type Props = {
   onStudentsFetch: (classId: string) => Promise<Student[]>;
 };
 
-const PERIODS = [1, 2, 3, 4, 5, 6, 7];
+const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function ViolationForm({ classes, violationTypes, onStudentsFetch }: Props) {
@@ -25,17 +25,24 @@ export default function ViolationForm({ classes, violationTypes, onStudentsFetch
   const [students, setStudents] = useState<Student[]>([]);
   const [classId, setClassId] = useState("");
   const [studentId, setStudentId] = useState("");
-  const [typeId, setTypeId] = useState("");
+  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
   const [period, setPeriod] = useState("");
   const [date, setDate] = useState(today());
   const [memo, setMemo] = useState("");
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const selectedStudent = students.find((s) => s.id === studentId);
 
   async function handleClassChange(id: string) {
     setClassId(id);
     setStudentId("");
     const list = await onStudentsFetch(id);
     setStudents(list);
+  }
+
+  function toggleType(id: string) {
+    setSelectedTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -45,7 +52,7 @@ export default function ViolationForm({ classes, violationTypes, onStudentsFetch
     startTransition(async () => {
       const res = await submitViolation({
         studentId,
-        violationTypeId: typeId,
+        violationTypeIds: selectedTypeIds,
         violationDate: date,
         period: Number(period),
         memo,
@@ -54,9 +61,12 @@ export default function ViolationForm({ classes, violationTypes, onStudentsFetch
       if (res.error) {
         setResult({ ok: false, msg: res.error });
       } else {
-        setResult({ ok: true, msg: "위반 사항이 등록되었습니다." });
+        setResult({
+          ok: true,
+          msg: `${res.count ?? selectedTypeIds.length}건의 위반 사항이 등록되었습니다.`,
+        });
         setStudentId("");
-        setTypeId("");
+        setSelectedTypeIds([]);
         setPeriod("");
         setMemo("");
       }
@@ -132,19 +142,30 @@ export default function ViolationForm({ classes, violationTypes, onStudentsFetch
             </Select>
           </div>
 
-          {/* 위반 유형 */}
+          {selectedStudent && (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">선택 학생</p>
+              <p className="text-muted-foreground">
+                {selectedStudent.student_number}번 {selectedStudent.name}
+              </p>
+            </div>
+          )}
+
+          {/* 위반 유형 체크리스트 */}
           <div className="space-y-1">
-            <Label>위반 유형</Label>
-            <Select value={typeId} onValueChange={setTypeId} required>
-              <SelectTrigger>
-                <SelectValue placeholder="위반 유형 선택" />
-              </SelectTrigger>
-              <SelectContent>
-                {violationTypes.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>점검 항목 *</Label>
+            <div className="space-y-2 rounded-md border p-3">
+              {violationTypes.map((t) => (
+                <label key={t.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedTypeIds.includes(t.id)}
+                    onChange={() => toggleType(t.id)}
+                  />
+                  {t.label}
+                </label>
+              ))}
+            </div>
           </div>
 
           {/* 메모 */}
