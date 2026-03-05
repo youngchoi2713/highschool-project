@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { clearSessionMarker, setSessionMarker } from "@/lib/auth/session-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-const SESSION_STARTED_AT_KEY = "yvhs_session_started_at";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,12 +33,13 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+      clearSessionMarker();
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
       setLoading(false);
       return;
     }
 
-    localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
+    setSessionMarker(Date.now());
 
     router.refresh();
     router.push("/");

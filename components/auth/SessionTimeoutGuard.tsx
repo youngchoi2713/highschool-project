@@ -2,47 +2,58 @@
 
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-
-const SESSION_STARTED_AT_KEY = "yvhs_session_started_at";
-const MAX_SESSION_MS = 8 * 60 * 60 * 1000; // 8시간
+import { SESSION_STARTED_AT_KEY, SESSION_TTL_MS } from "@/lib/auth/session";
+import {
+  clearSessionMarker,
+  getSessionStartFromCookie,
+  parseSessionStart,
+  setSessionMarker,
+} from "@/lib/auth/session-client";
 
 export default function SessionTimeoutGuard() {
   useEffect(() => {
     const supabase = createClient();
 
     const checkSessionAge = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session) {
-        localStorage.removeItem(SESSION_STARTED_AT_KEY);
+        clearSessionMarker();
         return;
       }
 
-      const saved = Number(localStorage.getItem(SESSION_STARTED_AT_KEY) ?? 0);
-      const startedAt = saved > 0 ? saved : Date.now();
-      if (!saved) localStorage.setItem(SESSION_STARTED_AT_KEY, String(startedAt));
+      const startedAt =
+        parseSessionStart(localStorage.getItem(SESSION_STARTED_AT_KEY)) ??
+        getSessionStartFromCookie() ??
+        Date.now();
 
-      if (Date.now() - startedAt > MAX_SESSION_MS) {
+      setSessionMarker(startedAt);
+
+      if (Date.now() - startedAt > SESSION_TTL_MS) {
         await supabase.auth.signOut();
-        localStorage.removeItem(SESSION_STARTED_AT_KEY);
+        clearSessionMarker();
         window.location.href = "/login?expired=1";
       }
     };
 
     checkSessionAge();
-    const timer = setInterval(checkSessionAge, 60 * 1000);
+    const timer = window.setInterval(checkSessionAge, 60 * 1000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
-        localStorage.setItem(SESSION_STARTED_AT_KEY, String(Date.now()));
+        setSessionMarker(Date.now());
       }
       if (event === "SIGNED_OUT") {
-        localStorage.removeItem(SESSION_STARTED_AT_KEY);
+        clearSessionMarker();
       }
     });
 
     return () => {
-      clearInterval(timer);
+      window.clearInterval(timer);
       subscription.unsubscribe();
     };
   }, []);

@@ -1,42 +1,11 @@
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { resolveSchoolId } from "@/lib/auth/server-identity";
 import { redirect } from "next/navigation";
 import { getAdminStats } from "@/features/admin/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-
-type UserLike = {
-  id: string;
-  app_metadata?: Record<string, unknown> | null;
-};
-
-async function resolveSchoolId(
-  supabase: ReturnType<typeof createClient>,
-  user: UserLike | null | undefined
-): Promise<string | null> {
-  const fromMetadata = user?.app_metadata?.school_id;
-  if (typeof fromMetadata === "string" && fromMetadata.length > 0) return fromMetadata;
-  if (!user?.id) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("school_id")
-    .eq("id", user.id)
-    .single();
-
-  const fromProfile = (profile?.school_id as string | undefined) ?? undefined;
-  if (fromProfile) return fromProfile;
-
-  const admin = createAdminClient();
-  const { data: profileByAdmin } = await admin
-    .from("profiles")
-    .select("school_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return (profileByAdmin?.school_id as string | undefined) ?? null;
-}
 
 export default async function AdminDashboard() {
   const supabase = createClient();
@@ -45,7 +14,7 @@ export default async function AdminDashboard() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const schoolId = await resolveSchoolId(supabase, user as UserLike | null | undefined);
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) redirect("/");
 
   const { data: school } = await supabase

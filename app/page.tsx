@@ -1,48 +1,7 @@
 import Link from "next/link";
-import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { resolveRole } from "@/lib/auth/server-identity";
 import { redirect } from "next/navigation";
-
-type Role = "super_admin" | "school_admin" | "homeroom" | "subject";
-
-type UserLike = {
-  id: string;
-  app_metadata?: Record<string, unknown> | null;
-};
-
-function normalizeRole(role: unknown): Role | null {
-  if (role === "admin") return "school_admin";
-  if (role === "super_admin" || role === "school_admin" || role === "homeroom" || role === "subject") {
-    return role;
-  }
-  return null;
-}
-
-async function resolveRole(
-  supabase: ReturnType<typeof createClient>,
-  user: UserLike | null | undefined
-): Promise<Role | null> {
-  const fromMetadata = normalizeRole(user?.app_metadata?.role);
-  if (fromMetadata) return fromMetadata;
-  if (!user?.id) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const fromProfile = normalizeRole(profile?.role);
-  if (fromProfile) return fromProfile;
-
-  const admin = createAdminClient();
-  const { data: profileByAdmin } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  return normalizeRole(profileByAdmin?.role);
-}
 
 export const dynamic = "force-dynamic";
 
@@ -52,7 +11,7 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const role = await resolveRole(supabase, user as UserLike | null | undefined);
+  const role = await resolveRole(supabase, user);
 
   async function logout() {
     "use server";

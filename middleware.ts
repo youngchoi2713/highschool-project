@@ -1,14 +1,20 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
-
-type AppRole = "super_admin" | "school_admin" | "homeroom" | "subject";
-type RawAppRole = AppRole | "admin";
+import { getRoleFromMetadata, normalizeRole, type AppRole } from "@/lib/auth/identity";
+import { SESSION_STARTED_AT_KEY, SESSION_TTL_MS, SESSION_TTL_SECONDS } from "@/lib/auth/session";
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/privacy", "/terms"];
 const SUBJECT_HOMEROOM_PATHS = ["/submit", "/violations"];
 const SCHOOL_ADMIN_PATHS = ["/admin"];
 const SUPER_ADMIN_PATHS = ["/super-admin"];
+
+const SESSION_COOKIE_OPTIONS: Partial<CookieOptions> = {
+  path: "/",
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+  maxAge: SESSION_TTL_SECONDS,
+};
 
 const isPublicPath = (pathname: string) =>
   PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -16,12 +22,24 @@ const isPublicPath = (pathname: string) =>
 const matchesAnyPrefix = (pathname: string, paths: string[]) =>
   paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
-function normalizeRole(role: unknown): AppRole | null {
-  if (role === "admin") return "school_admin";
-  if (role === "super_admin" || role === "school_admin" || role === "homeroom" || role === "subject") {
-    return role;
-  }
-  return null;
+function parseSessionStart(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const num = Number(raw);
+  if (!Number.isFinite(num) || num <= 0) return undefined;
+  return num;
+}
+
+async function getRoleFromProfile(
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string
+): Promise<AppRole | null> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return normalizeRole(profile?.role);
 }
 
 async function getRoleFromProfileWithService(userId: string): Promise<AppRole | null> {
@@ -98,14 +116,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  let role = normalizeRole((user.app_metadata?.role ?? null) as RawAppRole | null);
+  const now = Date.now();
+  const sessionStartedAt = parseSessionStart(request.cookies.get(SESSION_STARTED_AT_KEY)?.value);
+  if (sessionStartedAt && now - sessionStartedAt > SESSION_TTL_MS) {
+    await supabase.auth.signOut();
+
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("expired", "1");
+
+    const expiredResponse = NextResponse.redirect(url);
+    expiredResponse.cookies.set({
+      name: SESSION_STARTED_AT_KEY,
+      value: "",
+      path: "/",
+      maxAge: 0,
+    });
+    return expiredResponse;
+  }
+
+  if (!sessionStartedAt) {
+    response.cookies.set({
+      name: SESSION_STARTED_AT_KEY,
+      value: String(now),
+      ...SESSION_COOKIE_OPTIONS,
+    });
+  }
+
+  let role = getRoleFromMetadata(user);
   if (!role) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    role = normalizeRole(profile?.role);
+    role = await getRoleFromProfile(supabase, user.id);
   }
   if (!role) {
     role = await getRoleFromProfileWithService(user.id);

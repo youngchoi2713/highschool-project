@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit --project tsconfig.typecheck.json",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\scripts\\dev-clean.ps1",
+    "verify:local": "node ./scripts/verify-local.mjs"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",
@@ -36,3 +38,4 @@
     "typescript": "^5.5.4"
   }
 }
+

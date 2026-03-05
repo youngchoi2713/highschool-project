@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { setSessionMarker } from "@/lib/auth/session-client";
 import {
   registerTeacher,
   getSchools,
@@ -117,6 +118,7 @@ export default function RegisterPage() {
       return;
     }
 
+    setSessionMarker(Date.now());
     router.push(role === "homeroom" ? "/violations" : "/submit");
   }
 
