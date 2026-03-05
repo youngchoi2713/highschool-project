@@ -82,6 +82,10 @@ export default function RegisterPage() {
       setError("학교를 선택해 주세요.");
       return;
     }
+    if (role === "homeroom" && !classId) {
+      setError("담임은 담당 학급을 선택해야 합니다.");
+      return;
+    }
 
     setLoading(true);
     const registerResult = await registerTeacher({
@@ -92,7 +96,7 @@ export default function RegisterPage() {
       subject,
       schoolId,
       role,
-      classId: role === "homeroom" ? classId || undefined : undefined,
+      classId: role === "homeroom" ? classId : undefined,
     });
 
     if (registerResult.error) {
@@ -170,14 +174,15 @@ export default function RegisterPage() {
             </div>
             {role === "homeroom" && (
               <div className="space-y-1">
-                <Label htmlFor="classId">담당 학급(선택)</Label>
+                <Label htmlFor="classId">담당 학급 *</Label>
                 <select
                   id="classId"
                   value={classId}
                   onChange={(e) => setClassId(e.target.value)}
                   className={selectClass}
+                  required
                 >
-                  <option value="">학급 미지정</option>
+                  <option value="">학급을 선택하세요</option>
                   {classes.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.grade}학년 {c.class_number}반

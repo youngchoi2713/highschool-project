@@ -39,7 +39,7 @@ export async function getAdminStats(schoolId: string) {
       .eq("school_id", schoolId).eq("is_active", true),
     admin.from("profiles").select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
-      .in("role", ["homeroom", "subject", "school_admin"]),
+      .in("role", ["homeroom", "subject", "school_admin", "admin"]),
     admin.from("violations").select("id", { count: "exact", head: true })
       .eq("school_id", schoolId)
       .gte("violation_date", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)),
@@ -70,7 +70,7 @@ export async function getTeachers(schoolId: string) {
     .from("profiles")
     .select("id, name, email, role, phone, subject")
     .eq("school_id", schoolId)
-    .in("role", ["homeroom", "subject", "school_admin"])
+    .in("role", ["homeroom", "subject", "school_admin", "admin"])
     .order("name");
 
   const teachers = (error?.message?.includes("does not exist")
@@ -78,7 +78,7 @@ export async function getTeachers(schoolId: string) {
       .from("profiles")
       .select("id, name, email, role")
       .eq("school_id", schoolId)
-      .in("role", ["homeroom", "subject", "school_admin"])
+      .in("role", ["homeroom", "subject", "school_admin", "admin"])
       .order("name")
       .then((res) =>
         (res.data ?? []).map((p) => ({ ...p, phone: null, subject: null }))
@@ -116,3 +116,4 @@ export async function getStudents(schoolId: string) {
     .order("student_number");
   return data ?? [];
 }
+

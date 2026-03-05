@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getViolationTypes } from "@/features/violations/queries";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,14 +20,12 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // 담임 학급 조회
   const { data: myClass } = await supabase
     .from("classes")
     .select("id, grade, class_number")
     .eq("homeroom_teacher_id", user.id)
     .single();
 
-  // 담임 학급이 없으면 안내 메시지 표시 (전체 데이터 노출 방지)
   if (!myClass) {
     return (
       <div className="mx-auto max-w-5xl space-y-6 p-8">
@@ -34,6 +33,12 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
         <p className="text-muted-foreground">
           배정된 담임 학급이 없습니다. 관리자에게 문의하세요.
         </p>
+        <Link
+          href="/"
+          className="inline-block rounded-md border px-3 py-2 text-sm hover:bg-accent"
+        >
+          메인으로 가기
+        </Link>
       </div>
     );
   }
@@ -70,14 +75,12 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
     })
     : rawList;
 
-  // 유형별 집계
   const typeCounts = list.reduce<Record<string, number>>((acc, v) => {
     const label = (v.violation_types as any)?.label ?? "기타";
     acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {});
 
-  // 학생별 요약 (담임이 한 눈에 파악)
   const studentSummaryMap = new Map<string, {
     student: string;
     total: number;
@@ -116,15 +119,15 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">
           위반 이력
-          {myClass && (
-            <span className="ml-2 text-lg font-normal text-muted-foreground">
-              {myClass.grade}학년 {myClass.class_number}반
-            </span>
-          )}
+          <span className="ml-2 text-lg font-normal text-muted-foreground">
+            {myClass.grade}학년 {myClass.class_number}반
+          </span>
         </h1>
+        <Link href="/" className="rounded-md border px-3 py-2 text-sm hover:bg-accent">
+          메인으로
+        </Link>
       </div>
 
-      {/* 통계 */}
       <div className="flex gap-3 flex-wrap">
         <Card className="flex-1 min-w-[140px]">
           <CardHeader className="pb-1 pt-4 px-4">
@@ -146,7 +149,6 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
         ))}
       </div>
 
-      {/* 학생별 요약 */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">학생별 위반 요약</CardTitle>
@@ -185,7 +187,6 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
         </CardContent>
       </Card>
 
-      {/* 필터 */}
       <form className="flex flex-wrap gap-3 items-end">
         <div className="space-y-1">
           <label className="text-sm font-medium">시작일</label>
@@ -235,7 +236,6 @@ export default async function ViolationsPage({ searchParams }: { searchParams: S
         </button>
       </form>
 
-      {/* 테이블 */}
       <Card>
         <Table>
           <TableHeader>

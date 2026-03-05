@@ -16,11 +16,37 @@ function dbErr(error: { message?: string; code?: string }, label: string): strin
   return `${label} 처리 중 오류가 발생했습니다.`;
 }
 
+async function resolveSchoolId(
+  supabase: ReturnType<typeof createClient>,
+  user: { id?: string; app_metadata?: Record<string, unknown> | null } | null | undefined
+) {
+  const fromMetadata = user?.app_metadata?.["school_id"];
+  if (typeof fromMetadata === "string" && fromMetadata.length > 0) return fromMetadata;
+  if (!user?.id) return undefined;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .single();
+
+  const fromProfile = (profile?.school_id as string | undefined) ?? undefined;
+  if (fromProfile) return fromProfile;
+
+  const admin = createAdminClient();
+  const { data: profileByAdmin } = await admin
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return (profileByAdmin?.school_id as string | undefined) ?? undefined;
+}
 // ── 학급 ──────────────────────────────────────────
 export async function createClass(formData: FormData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const grade = Number(formData.get("grade"));
@@ -47,7 +73,7 @@ export async function updateClass(
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -65,7 +91,7 @@ export async function updateClass(
 export async function deleteClass(classId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -94,7 +120,7 @@ export async function deleteClass(classId: string) {
 export async function assignHomeroom(classId: string, teacherId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -121,7 +147,7 @@ export async function createTeacher(data: {
 }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -274,7 +300,7 @@ export async function updateTeacherRole(
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -294,7 +320,7 @@ export async function updateTeacher(
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -312,7 +338,7 @@ export async function updateTeacher(
 export async function deleteTeacher(userId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -330,7 +356,7 @@ export async function deleteTeacher(userId: string) {
 export async function createStudent(formData: FormData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const classId = formData.get("class_id") as string;
@@ -359,7 +385,7 @@ export async function updateStudent(
 ) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -377,7 +403,7 @@ export async function updateStudent(
 export async function deleteStudent(studentId: string) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const schoolId = user?.app_metadata?.school_id as string | undefined;
+  const schoolId = await resolveSchoolId(supabase, user);
   if (!schoolId) return { error: "권한이 없습니다." };
 
   const admin = createAdminClient();
@@ -460,3 +486,4 @@ export async function bulkCreateStudentsWithAutoClass(
   revalidatePath("/admin/classes");
   return { success: true, count: inserts.length };
 }
+

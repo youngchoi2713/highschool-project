@@ -1,15 +1,50 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getStudents, getClasses } from "@/features/admin/queries";
 import StudentsClient from "@/features/admin/components/StudentsClient";
 
 export const dynamic = "force-dynamic";
 
+type UserLike = {
+  id: string;
+  app_metadata?: Record<string, unknown> | null;
+};
+
+async function resolveSchoolId(
+  supabase: ReturnType<typeof createClient>,
+  user: UserLike | null | undefined
+): Promise<string | null> {
+  const fromMetadata = user?.app_metadata?.school_id;
+  if (typeof fromMetadata === "string" && fromMetadata.length > 0) return fromMetadata;
+  if (!user?.id) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .single();
+
+  const fromProfile = (profile?.school_id as string | undefined) ?? undefined;
+  if (fromProfile) return fromProfile;
+
+  const admin = createAdminClient();
+  const { data: profileByAdmin } = await admin
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return (profileByAdmin?.school_id as string | undefined) ?? null;
+}
+
 export default async function StudentsPage() {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-  const schoolId = user.app_metadata?.school_id as string | undefined;
+
+  const schoolId = await resolveSchoolId(supabase, user as UserLike | null | undefined);
   if (!schoolId) redirect("/");
 
   const [students, classes] = await Promise.all([

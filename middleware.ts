@@ -1,7 +1,9 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 type AppRole = "super_admin" | "school_admin" | "homeroom" | "subject";
+type RawAppRole = AppRole | "admin";
 
 const PUBLIC_PATHS = ["/", "/login", "/register", "/privacy", "/terms"];
 const SUBJECT_HOMEROOM_PATHS = ["/submit", "/violations"];
@@ -13,6 +15,35 @@ const isPublicPath = (pathname: string) =>
 
 const matchesAnyPrefix = (pathname: string, paths: string[]) =>
   paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+function normalizeRole(role: unknown): AppRole | null {
+  if (role === "admin") return "school_admin";
+  if (role === "super_admin" || role === "school_admin" || role === "homeroom" || role === "subject") {
+    return role;
+  }
+  return null;
+}
+
+async function getRoleFromProfileWithService(userId: string): Promise<AppRole | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) return null;
+
+  const admin = createSupabaseAdminClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return normalizeRole(profile?.role);
+}
 
 function hasRoleAccess(pathname: string, role: AppRole | null): boolean {
   if (matchesAnyPrefix(pathname, SUBJECT_HOMEROOM_PATHS)) {
@@ -67,7 +98,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  const role = (user.app_metadata?.role ?? null) as AppRole | null;
+  let role = normalizeRole((user.app_metadata?.role ?? null) as RawAppRole | null);
+  if (!role) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    role = normalizeRole(profile?.role);
+  }
+  if (!role) {
+    role = await getRoleFromProfileWithService(user.id);
+  }
 
   if (pathname === "/login") {
     const url = request.nextUrl.clone();

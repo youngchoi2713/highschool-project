@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { getAdminStats } from "@/features/admin/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,11 +6,46 @@ import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
+type UserLike = {
+  id: string;
+  app_metadata?: Record<string, unknown> | null;
+};
+
+async function resolveSchoolId(
+  supabase: ReturnType<typeof createClient>,
+  user: UserLike | null | undefined
+): Promise<string | null> {
+  const fromMetadata = user?.app_metadata?.school_id;
+  if (typeof fromMetadata === "string" && fromMetadata.length > 0) return fromMetadata;
+  if (!user?.id) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .single();
+
+  const fromProfile = (profile?.school_id as string | undefined) ?? undefined;
+  if (fromProfile) return fromProfile;
+
+  const admin = createAdminClient();
+  const { data: profileByAdmin } = await admin
+    .from("profiles")
+    .select("school_id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return (profileByAdmin?.school_id as string | undefined) ?? null;
+}
+
 export default async function AdminDashboard() {
   const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-  const schoolId = user.app_metadata?.school_id as string | undefined;
+
+  const schoolId = await resolveSchoolId(supabase, user as UserLike | null | undefined);
   if (!schoolId) redirect("/");
 
   const { data: school } = await supabase
@@ -40,7 +75,6 @@ export default async function AdminDashboard() {
         <p className="text-muted-foreground text-sm">오늘도 좋은 하루 되세요.</p>
       </div>
 
-      {/* 통계 카드 */}
       <div className="grid grid-cols-3 gap-4">
         {STATS.map((s) => (
           <Link key={s.href} href={s.href}>
@@ -56,7 +90,6 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      {/* 바로가기 */}
       <div>
         <h2 className="text-base font-semibold mb-3">바로가기</h2>
         <div className="flex gap-3">
