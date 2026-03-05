@@ -39,3 +39,6 @@ next-env.d.ts
 
 # local notes with credentials
 API URL etc.txt
+
+# local temp logs
+tmp-*.log
