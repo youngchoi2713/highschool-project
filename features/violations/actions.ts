@@ -67,3 +67,23 @@ export async function submitViolation(input: SubmitViolationInput) {
   revalidatePath("/violations");
   return { success: true, count: inserts.length };
 }
+
+export async function getStudentsByClassAction(classId: string) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const schoolId = user.app_metadata?.school_id as string | undefined;
+  if (!schoolId) return [];
+  if (!classId) return [];
+
+  const { data } = await supabase
+    .from("students")
+    .select("id, student_number, name")
+    .eq("class_id", classId)
+    .eq("school_id", schoolId)
+    .eq("is_active", true)
+    .order("student_number");
+
+  return data ?? [];
+}

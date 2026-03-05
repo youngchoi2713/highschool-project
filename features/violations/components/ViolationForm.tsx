@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { submitViolation } from "../actions";
+import { getStudentsByClassAction, submitViolation } from "../actions";
 
 type Class = { id: string; grade: number; class_number: number };
 type Student = { id: string; student_number: number; name: string };
@@ -14,13 +14,12 @@ type ViolationType = { id: string; code: string; label: string };
 type Props = {
   classes: Class[];
   violationTypes: ViolationType[];
-  onStudentsFetch: (classId: string) => Promise<Student[]>;
 };
 
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const today = () => new Date().toISOString().slice(0, 10);
 
-export default function ViolationForm({ classes, violationTypes, onStudentsFetch }: Props) {
+export default function ViolationForm({ classes, violationTypes }: Props) {
   const [isPending, startTransition] = useTransition();
   const [students, setStudents] = useState<Student[]>([]);
   const [classId, setClassId] = useState("");
@@ -35,7 +34,7 @@ export default function ViolationForm({ classes, violationTypes, onStudentsFetch
   async function handleClassChange(id: string) {
     setClassId(id);
     setStudentId("");
-    const list = await onStudentsFetch(id);
+    const list = await getStudentsByClassAction(id);
     setStudents(list);
   }
 
